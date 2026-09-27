@@ -1,5 +1,8 @@
 import asyncio
 import os
+import threading
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import Command
@@ -66,7 +69,26 @@ async def send_quote(callback: CallbackQuery):
     await callback.answer()
 
 
+# --- Мини веб-сервер, чтобы Render видел открытый порт ---
+class HealthHandler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header("Content-type", "text/plain")
+        self.end_headers()
+        self.wfile.write(b"Bot is alive")
+
+    def log_message(self, format, *args):
+        pass
+
+
+def run_web_server():
+    port = int(os.environ.get("PORT", 8080))
+    server = HTTPServer(("0.0.0.0", port), HealthHandler)
+    server.serve_forever()
+
+
 async def main():
+    threading.Thread(target=run_web_server, daemon=True).start()
     print("Бот запущен...")
     await dp.start_polling(bot)
 
